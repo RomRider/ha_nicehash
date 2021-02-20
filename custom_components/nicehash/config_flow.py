@@ -1,9 +1,9 @@
 """Config flow to configure the NiceHash integration."""
 import logging
-from homeassistant import config_entries, core
+from homeassistant import config_entries
 import voluptuous as vol
-from .const import DOMAIN, NICEHASH_API_ENDPOINT
-from .NiceHash import NiceHashPrivateAPI
+from custom_components.nicehash.const import DOMAIN, NICEHASH_API_ENDPOINT
+from custom_components.nicehash.nicehash import NiceHashPrivateAPI
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -15,18 +15,19 @@ DATA_SCHEMA = {
 }
 
 
-async def validate_input(hass: core.HomeAssistant, data: dict):
+async def validate_input(data: dict):
     """Validate the user input allows us to connect.
     Data has the keys from DATA_SCHEMA with values provided by the user.
     """
     private = NiceHashPrivateAPI(
         NICEHASH_API_ENDPOINT, data["org_id"], data["key"], data["secret"]
     )
-    private.get_mining_address()
+    await private.get_mining_address()
     return
 
 
 class NiceHashConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """NiceHash config flow"""
 
     CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_POLL
 
@@ -34,13 +35,13 @@ class NiceHashConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
         if user_input is not None:
             try:
-                await validate_input(self.hass, user_input)
+                await validate_input(user_input)
                 return self.async_create_entry(
                     title=user_input["name"], data=user_input
                 )
-            except Exception as e:
+            except Exception as err:
                 errors["key"] = "invalid_cred"
-                _LOGGER.exception(str(e))
+                _LOGGER.exception(str(err))
 
         return self.async_show_form(
             step_id="user", data_schema=vol.Schema(DATA_SCHEMA), errors=errors

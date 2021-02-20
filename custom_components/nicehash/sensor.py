@@ -1,17 +1,24 @@
 """Support for Neato sensors."""
+
 from datetime import timedelta
 import logging
-import async_timeout
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.entity import Entity
+from homeassistant.core import callback
+
+# from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
-    DataUpdateCoordinator,
-    UpdateFailed,
 )
+from homeassistant.helpers.typing import HomeAssistantType
 
-from custom_components.nicehash.NiceHash import NiceHashPrivateAPI
-
-from .const import DOMAIN, SCAN_INTERVAL_MINUTES
+from custom_components.nicehash.common import NiceHashSensorDataUpdateCoordinator
+from custom_components.nicehash.const import (
+    DOMAIN,
+    SCAN_INTERVAL_MINUTES,
+    SENSOR_DATA_COORDINATOR,
+    UNSUB,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,44 +34,51 @@ RIG_DATA_ATTRIBUTES = [
 RIG_STATS_ATTRIBUTES = [{"speedAccepted": {}}, {"speedRejectedTotal": {}}]
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
+async def async_setup_entry(
+    hass: HomeAssistantType, config_entry: ConfigEntry, async_add_entities
+) -> None:
     """Set up the NiceHash sensor using config entry."""
-    api: NiceHashPrivateAPI = hass.data[DOMAIN][entry.entry_id]
-
-    async def async_update_data():
-        """Fetch data from API endpoint."""
-        try:
-            async with async_timeout.timeout(10):
-                rigs = await api.get_rigs_data()
-                return rigs
-        except Exception as err:
-            raise UpdateFailed(f"Error communicating with API: {err}") from err
-
-    coordinator = DataUpdateCoordinator(
-        hass,
-        _LOGGER,
-        name="sensor",
-        update_method=async_update_data,
-        update_interval=SCAN_INTERVAL,
-    )
+    coordinator: NiceHashSensorDataUpdateCoordinator = hass.data[DOMAIN][
+        config_entry.entry_id
+    ][SENSOR_DATA_COORDINATOR]
 
     # Fetch initial data so we have data when entities subscribe
-    dev = []
-    await coordinator.async_refresh()
-    for rig in coordinator.data.get("miningRigs"):
-        rig_id = rig.get("rigId")
-        for data_type in RIG_DATA_ATTRIBUTES:
-            dev.append(NiceHashRigSensor(coordinator, rig_id, data_type))
-        for stat in rig.get("stats", []):
-            alg = stat.get("algorithm")
-            for data_type in RIG_STATS_ATTRIBUTES:
-                dev.append(
-                    NiceHashRigStatSensor(
+    @callback
+    def _update_entities():
+        if not hasattr(_update_entities, "dev"):
+            _update_entities.dev = []
+
+        new_dev = []
+        for rig in coordinator.data.get("miningRigs"):
+            rig_id = rig.get("rigId")
+            for data_type in RIG_DATA_ATTRIBUTES:
+                sensor = NiceHashRigSensor(coordinator, rig_id, data_type)
+                if sensor.unique_id not in _update_entities.dev:
+                    new_dev.append(sensor)
+                    _update_entities.dev.append(sensor.unique_id)
+            for stat in rig.get("stats", []):
+                alg = stat.get("algorithm")
+                for data_type in RIG_STATS_ATTRIBUTES:
+                    sensor = NiceHashRigStatSensor(
                         coordinator, rig_id, alg.get("enumName"), data_type
                     )
-                )
+                    if sensor.unique_id not in _update_entities.dev:
+                        new_dev.append(sensor)
+                        _update_entities.dev.append(sensor.unique_id)
 
-    async_add_entities(dev)
+        async_add_entities(new_dev)
+
+    unsub = coordinator.async_add_listener(_update_entities)
+    hass.data[DOMAIN][config_entry.entry_id][UNSUB].append(unsub)
+    await coordinator.async_refresh()
+
+    # @callback
+    # def update_sensor_entities(entry: ConfigEntry) -> None:
+    #     _LOGGER.warning("called")
+
+    # hass.data[DOMAIN][entry.entry_id][UNSUB].append(
+    #     async_dispatcher_connect(hass, entry.entry_id, update_sensor_entities)
+    # )
 
 
 class NiceHashSensor(CoordinatorEntity, Entity):

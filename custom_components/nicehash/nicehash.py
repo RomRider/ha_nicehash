@@ -1,5 +1,6 @@
+""" Implementation of the NiceHash API """
+
 from datetime import datetime
-import logging
 from time import mktime
 import uuid
 import hmac
@@ -12,6 +13,7 @@ class NiceHashPrivateAPI:
     """ Implementation of the API calls """
 
     def __init__(self, host, organisation_id, key, secret, verbose=False):
+        """Init the API"""
         self.key = key
         self.secret = secret
         self.organisation_id = organisation_id
@@ -19,6 +21,7 @@ class NiceHashPrivateAPI:
         self.verbose = verbose
 
     async def request(self, method, path, query, body):
+        """NiceHash API Request"""
 
         xtime = self.get_epoch_ms_from_now()
         xnonce = str(uuid.uuid4())
@@ -80,12 +83,15 @@ class NiceHashPrivateAPI:
                 raise Exception(str(response.status_code) + ": " + response.reason)
 
     async def get_mining_address(self):
+        """Return the mining address"""
         return await self.request("GET", "/main/api/v2/mining/miningAddress", "", None)
 
     async def get_rigs_data(self):
+        """Return the rigs object"""
         return await self.request("GET", "/main/api/v2/mining/rigs2", "", None)
 
     def get_epoch_ms_from_now(self):
+        """Return epoch from now"""
         now = datetime.now()
         now_ec_since_epoch = mktime(now.timetuple()) + now.microsecond / 1000000.0
         return int(now_ec_since_epoch * 1000)
