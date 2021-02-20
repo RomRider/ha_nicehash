@@ -1,0 +1,13 @@
+{
+  "markdown.extension.tableFormatter.enabled": false,
+  "markdown.extension.toc.slugifyMode": "github",
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[markdown]": {
+    "editor.wordWrap": "on",
+    "editor.quickSuggestions": false,
+    "editor.defaultFormatter": "yzhang.markdown-all-in-one"
+  },
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.python"
+  }
+}

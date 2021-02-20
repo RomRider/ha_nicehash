@@ -1,0 +1,19 @@
+{
+  "title": "NiceHash",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Define your credentials",
+        "data": {
+          "name": "Integration Name",
+          "key": "Key",
+          "secret": "Secret",
+          "org_id": "Org ID"
+        }
+      }
+    },
+    "error": {
+      "invalid_cred": "Failed to connect, please verify your credentials"
+    }
+  }
+}
