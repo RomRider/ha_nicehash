@@ -18,7 +18,9 @@ INTERVAL = timedelta(minutes=SCAN_INTERVAL_MINUTES)
 class NiceHashSensorDataUpdateCoordinator(DataUpdateCoordinator):
     """Define an object to hold Zoom user profile data."""
 
-    def __init__(self, hass: HomeAssistant, api: NiceHashPrivateAPI) -> None:
+    def __init__(
+        self, hass: HomeAssistant, api: NiceHashPrivateAPI, fiat="USD"
+    ) -> None:
         """Initialize."""
         super().__init__(
             hass,
@@ -28,13 +30,14 @@ class NiceHashSensorDataUpdateCoordinator(DataUpdateCoordinator):
             update_method=self._async_update_data,
         )
         self._api = api
-        self.sensor_update = None
+        self._fiat = fiat
 
     async def _async_update_data(self) -> Dict[str, Any]:
         """Fetch data from API endpoint."""
         try:
             async with async_timeout.timeout(10):
                 rigs = await self._api.get_rigs_data()
-                return rigs
+                account = await self._api.get_account_data(self._fiat)
+                return {"rigs": rigs, "account": account}
         except Exception as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err

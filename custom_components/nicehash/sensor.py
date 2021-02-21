@@ -33,6 +33,8 @@ GLOBAL_ATTRIBUTES = [
 RIG_DATA_ATTRIBUTES = [
     {"localProfitability": {"numerical": True, "unit": "BTC"}},
     {"profitability": {"numerical": True, "unit": "BTC"}},
+]
+RIG_DATA_ATTRIBUTES_NON_BTC = [
     {"minerStatus": {"numerical": False, "unit": None}},
 ]
 
@@ -47,30 +49,76 @@ async def async_setup_entry(
         config_entry.entry_id
     ][SENSOR_DATA_COORDINATOR]
 
-    # Fetch initial data so we have data when entities subscribe
     @callback
     def _update_entities():
         if not hasattr(_update_entities, "dev"):
             _update_entities.dev = []
+        if not coordinator.last_update_success:
+            return
 
         new_dev = []
+
+        total_balance = NiceHashAccountGlobalSensor(
+            coordinator, config_entry, {"totalBalance": {"unit": "BTC"}}
+        )
+        total_balance_conv = NiceHashAccountGlobalSensor(
+            coordinator, config_entry, {"totalBalance": {"unit": "BTC"}}, True
+        )
+        if total_balance.unique_id not in _update_entities.dev:
+            new_dev.append(total_balance)
+            _update_entities.dev.append(total_balance.unique_id)
+        if total_balance_conv.unique_id not in _update_entities.dev:
+            new_dev.append(total_balance_conv)
+            _update_entities.dev.append(total_balance_conv.unique_id)
+        fiat_rate = NiceHashAccountGlobalSensor(
+            coordinator,
+            config_entry,
+            {"fiatRate": {"unit": config_entry.data.get("fiat", "USD")}},
+        )
+        if fiat_rate.unique_id not in _update_entities.dev:
+            new_dev.append(fiat_rate)
+            _update_entities.dev.append(fiat_rate.unique_id)
+
         for attr in GLOBAL_ATTRIBUTES:
             sensor = NiceHashGlobalSensor(coordinator, config_entry, attr)
+            sensor_conv = NiceHashGlobalSensor(coordinator, config_entry, attr, True)
             if sensor.unique_id not in _update_entities.dev:
                 new_dev.append(sensor)
                 _update_entities.dev.append(sensor.unique_id)
-        for rig in coordinator.data.get("miningRigs"):
+            if sensor_conv.unique_id not in _update_entities.dev:
+                new_dev.append(sensor_conv)
+                _update_entities.dev.append(sensor_conv.unique_id)
+
+        for rig in coordinator.data.get("rigs").get("miningRigs"):
             rig_id = rig.get("rigId")
+
             for data_type in RIG_DATA_ATTRIBUTES:
-                sensor = NiceHashRigSensor(coordinator, rig_id, data_type)
+                sensor = NiceHashRigSensor(coordinator, config_entry, rig_id, data_type)
+                sensor_conv = NiceHashRigSensor(
+                    coordinator, config_entry, rig_id, data_type, True
+                )
                 if sensor.unique_id not in _update_entities.dev:
                     new_dev.append(sensor)
                     _update_entities.dev.append(sensor.unique_id)
+                if sensor_conv.unique_id not in _update_entities.dev:
+                    new_dev.append(sensor_conv)
+                    _update_entities.dev.append(sensor_conv.unique_id)
+
+            for data_type in RIG_DATA_ATTRIBUTES_NON_BTC:
+                sensor = NiceHashRigSensor(coordinator, config_entry, rig_id, data_type)
+                if sensor.unique_id not in _update_entities.dev:
+                    new_dev.append(sensor)
+                    _update_entities.dev.append(sensor.unique_id)
+
             for stat in rig.get("stats", []):
                 alg = stat.get("algorithm")
                 for data_type in RIG_STATS_ATTRIBUTES:
                     sensor = NiceHashRigStatSensor(
-                        coordinator, rig_id, alg.get("enumName"), data_type
+                        coordinator,
+                        config_entry,
+                        rig_id,
+                        alg.get("enumName"),
+                        data_type,
                     )
                     if sensor.unique_id not in _update_entities.dev:
                         new_dev.append(sensor)
@@ -96,24 +144,37 @@ class NiceHashGlobalSensor(CoordinatorEntity, Entity):
 
     domain = PLATFORM
 
-    def __init__(self, coordinator, config_entry: ConfigEntry, info_type):
+    def __init__(
+        self, coordinator, config_entry: ConfigEntry, info_type, convert=False
+    ):
         super().__init__(coordinator)
         self._info_type = list(info_type.keys())[0]
         self._info = info_type[self._info_type]
         self._config_entry = config_entry
+        self._data_type = "rigs"
+        self._convert = convert
 
     @property
     def unique_id(self):
+        if self._convert:
+            return f"nh-{self._config_entry.data['name']}-{self._info_type}-{self._config_entry.data['fiat']}"
         return f"nh-{self._config_entry.data['name']}-{self._info_type}"
 
     @property
     def name(self):
+        if self._convert:
+            return f"NH - {self._config_entry.data['name']} - {self._info_type} - {self._config_entry.data['fiat']}"
         return f"NH - {self._config_entry.data['name']} - {self._info_type}"
 
     @property
     def state(self):
         """State of the sensor."""
-        return self.coordinator.data[self._info_type]
+        if self._convert and self._info.get("unit", None) == "BTC":
+            return (
+                float(self.coordinator.data[self._data_type][self._info_type])
+                * self.coordinator.data["account"]["currencies"][0]["fiatRate"]
+            )
+        return self.coordinator.data[self._data_type][self._info_type]
 
     @property
     def available(self):
@@ -123,6 +184,8 @@ class NiceHashGlobalSensor(CoordinatorEntity, Entity):
     @property
     def unit_of_measurement(self):
         """Return unit of measurement."""
+        if self._convert and self._info.get("unit", None) == "BTC":
+            return self._config_entry.data["fiat"]
         return self._info.get("unit", None)
 
     @property
@@ -149,15 +212,20 @@ class NiceHashSensor(CoordinatorEntity, Entity):
     name = None
     unique_id = None
 
-    def __init__(self, coordinator, rigId, info_type):
+    def __init__(self, coordinator, config_entry, rigId, info_type, convert=False):
         super().__init__(coordinator)
         self._rig_id = rigId
         self._info_type = list(info_type.keys())[0]
         self._info = info_type[self._info_type]
+        self._data_type = "rigs"
+        self._config_entry = config_entry
+        self._convert = convert
 
     @property
     def unit_of_measurement(self):
         """Return unit of measurement."""
+        if self._convert and self._info.get("unit", None) == "BTC":
+            return self._config_entry.data["fiat"]
         return self._info.get("unit", None)
 
     @property
@@ -168,7 +236,7 @@ class NiceHashSensor(CoordinatorEntity, Entity):
     def get_rig(self):
         """Return the rig object."""
         rig = None
-        for rig_entry in self.coordinator.data.get("miningRigs"):
+        for rig_entry in self.coordinator.data[self._data_type].get("miningRigs", []):
             if rig_entry.get("rigId") == self._rig_id:
                 rig = rig_entry
         return rig
@@ -192,36 +260,51 @@ class NiceHashRigSensor(NiceHashSensor):
 
     @property
     def unique_id(self):
+        if self._convert:
+            return (
+                f"nh-{self._rig_id}-{self._info_type}-{self._config_entry.data['fiat']}"
+            )
         return f"nh-{self._rig_id}-{self._info_type}"
 
     @property
     def name(self):
         rig = self.get_rig()
         if rig is not None:
+            if self._convert:
+                return f"NH - {rig.get('name')} - {self._info_type} - {self._config_entry.data['fiat']}"
             return f"NH - {rig.get('name')} - {self._info_type}"
         return None
 
     @property
     def state(self):
         """State of the sensor."""
+        if self._convert and self._info.get("unit", None) == "BTC":
+            return (
+                self.get_rig()[self._info_type]
+                * self.coordinator.data["account"]["currencies"][0]["fiatRate"]
+            )
         return self.get_rig()[self._info_type]
 
 
 class NiceHashRigStatSensor(NiceHashSensor):
     """Representation of a NiceHash Stat Sensor"""
 
-    def __init__(self, coordinator, rigId, alg, info_type):
-        super().__init__(coordinator, rigId, info_type)
+    def __init__(self, coordinator, config_entry, rigId, alg, info_type, convert=False):
+        super().__init__(coordinator, config_entry, rigId, info_type, convert)
         self._alg = alg
 
     @property
     def unique_id(self):
+        if self._convert:
+            return f"nh-{self._rig_id}-{self._alg}-{self._info_type}-{self._config_entry.data['fiat']}"
         return f"nh-{self._rig_id}-{self._alg}-{self._info_type}"
 
     @property
     def name(self):
         rig = self.get_rig()
         if rig is not None:
+            if self._convert:
+                return f"NH - {rig.get('name')} - {self._alg} - {self._info_type} - {self._config_entry.data['fiat']}"
             return f"NH - {rig.get('name')} - {self._alg} - {self._info_type}"
         return None
 
@@ -229,12 +312,10 @@ class NiceHashRigStatSensor(NiceHashSensor):
         """Return the stat object."""
         rig = self.get_rig()
         alg = None
-        stats = stats = rig.get("stats")
-        if stats:
-            for stat in stats:
-                alg = stat.get("algorithm")
-                if alg and alg.get("enumName") == self._alg:
-                    alg = stat
+        for stat in rig.get("stats", []):
+            alg = stat.get("algorithm")
+            if alg and alg.get("enumName") == self._alg:
+                alg = stat
         return alg
 
     @property
@@ -242,6 +323,11 @@ class NiceHashRigStatSensor(NiceHashSensor):
         """State of the sensor."""
         alg = self.get_alg()
         if alg is not None:
+            if self._convert:
+                return (
+                    alg.get(self._info_type)
+                    * self.coordinator.data["account"]["currencies"][0]["fiatRate"]
+                )
             return alg.get(self._info_type)
         return None
 
@@ -256,3 +342,35 @@ class NiceHashRigStatSensor(NiceHashSensor):
         if self._alg == "DAGGERHASHIMOTO":
             return "MH/s"
         return super().unit_of_measurement
+
+
+class NiceHashAccountGlobalSensor(NiceHashGlobalSensor):
+    """Sensor reprensenting all rigs data"""
+
+    domain = PLATFORM
+
+    def __init__(
+        self, coordinator, config_entry: ConfigEntry, info_type, convert=False
+    ):
+        super().__init__(coordinator, config_entry, info_type, convert)
+        self._data_type = "account"
+
+    @property
+    def name(self):
+        if self._convert:
+            return f"NH - {self._config_entry.data['name']} - {self._info_type} - {self._config_entry.data['fiat']}"
+        return f"NH - {self._config_entry.data['name']} - {self._info_type}"
+
+    @property
+    def state(self):
+        """State of the sensor."""
+        if self._convert:
+            return (
+                float(
+                    self.coordinator.data[self._data_type]["currencies"][0][
+                        self._info_type
+                    ]
+                )
+                * self.coordinator.data["account"]["currencies"][0]["fiatRate"]
+            )
+        return self.coordinator.data[self._data_type]["currencies"][0][self._info_type]

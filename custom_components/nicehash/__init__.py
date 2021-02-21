@@ -49,10 +49,10 @@ async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry) -> bool
         entry.data["secret"],
     )
 
-    coordinator = NiceHashSensorDataUpdateCoordinator(hass, api)
+    coordinator = NiceHashSensorDataUpdateCoordinator(hass, api, entry.data["fiat"])
 
     try:
-        await coordinator.async_refresh()
+        await api.get_mining_address()
     except Exception as err:
         raise ConfigEntryNotReady from err
 

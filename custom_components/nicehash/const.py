@@ -6,7 +6,7 @@ SCAN_INTERVAL_MINUTES = 1
 
 NICEHASH_API_ENDPOINT = "https://api2.nicehash.com"
 
-SENSOR_DATA_COORDINATOR = "sensor_coordinator"
+SENSOR_DATA_COORDINATOR = "rig_sensor_coordinator"
 API = "api"
 UNSUB = "unsub"
 SENSORS = "sensors"

@@ -1,6 +1,7 @@
 """ Implementation of the NiceHash API """
 
 from datetime import datetime
+import logging
 from time import mktime
 import uuid
 import hmac
@@ -20,7 +21,7 @@ class NiceHashPrivateAPI:
         self.host = host
         self.verbose = verbose
 
-    async def request(self, method, path, query, body):
+    async def request(self, method, path, query="", query2=None):
         """NiceHash API Request"""
 
         xtime = self.get_epoch_ms_from_now()
@@ -42,10 +43,10 @@ class NiceHashPrivateAPI:
         message += bytearray("\x00", "utf-8")
         message += bytearray(query, "utf-8")
 
-        if body:
-            body_json = json.dumps(body)
-            message += bytearray("\x00", "utf-8")
-            message += bytearray(body_json, "utf-8")
+        # if body:
+        #     body_json = json.dumps(body)
+        #     message += bytearray("\x00", "utf-8")
+        #     message += bytearray(body_json, "utf-8")
 
         digest = hmac.new(bytearray(self.secret, "utf-8"), message, sha256).hexdigest()
         xauth = self.key + ":" + digest
@@ -60,35 +61,40 @@ class NiceHashPrivateAPI:
         }
 
         url = self.host + path
-        if query:
-            url += "?" + query
 
         if self.verbose:
             print(method, url)
 
-        response = {}
-
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=headers) as response:
+        async with aiohttp.ClientSession(headers=headers) as session:
+            async with session.get(url, params=query2) as response:
                 if response.status == 200:
                     return await response.json()
                 if response.content:
                     raise Exception(
-                        str(response.status_code)
+                        str(response.status)
                         + ": "
                         + response.reason
                         + ": "
                         + str(response.content)
                     )
-                raise Exception(str(response.status_code) + ": " + response.reason)
+                raise Exception(str(response.status) + ": " + response.reason)
 
     async def get_mining_address(self):
         """Return the mining address"""
-        return await self.request("GET", "/main/api/v2/mining/miningAddress", "", None)
+        return await self.request("GET", "/main/api/v2/mining/miningAddress")
 
     async def get_rigs_data(self):
         """Return the rigs object"""
-        return await self.request("GET", "/main/api/v2/mining/rigs2", "", None)
+        return await self.request("GET", "/main/api/v2/mining/rigs2")
+
+    async def get_account_data(self, fiat="USD"):
+        """Return the account object"""
+        return await self.request(
+            "GET",
+            "/main/api/v2/accounting/accounts2",
+            "fiat={}".format(fiat),
+            {"fiat": fiat},
+        )
 
     def get_epoch_ms_from_now(self):
         """Return epoch from now"""

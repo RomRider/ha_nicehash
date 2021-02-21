@@ -1,7 +1,9 @@
 """Config flow to configure the NiceHash integration."""
 import logging
+from typing import Optional
 from homeassistant import config_entries
 import voluptuous as vol
+from voluptuous.schema_builder import Required
 from custom_components.nicehash.const import DOMAIN, NICEHASH_API_ENDPOINT
 from custom_components.nicehash.nicehash import NiceHashPrivateAPI
 
@@ -12,6 +14,7 @@ DATA_SCHEMA = {
     vol.Required("key"): str,
     vol.Required("secret"): str,
     vol.Required("org_id"): str,
+    vol.Required("fiat", default="USD"): str,
 }
 
 
