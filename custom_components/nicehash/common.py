@@ -8,7 +8,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from custom_components.nicehash.nicehash import NiceHashPrivateAPI
-from custom_components.nicehash.const import DOMAIN, SCAN_INTERVAL_MINUTES
+from custom_components.nicehash.const import (
+    ACCOUNT_OBJ,
+    DOMAIN,
+    RIGS_OBJ,
+    SCAN_INTERVAL_MINUTES,
+)
 
 _LOGGER = getLogger(__name__)
 
@@ -38,6 +43,6 @@ class NiceHashSensorDataUpdateCoordinator(DataUpdateCoordinator):
             async with async_timeout.timeout(10):
                 rigs = await self._api.get_rigs_data()
                 account = await self._api.get_account_data(self._fiat)
-                return {"rigs": rigs, "account": account}
+                return {RIGS_OBJ: rigs, ACCOUNT_OBJ: account}
         except Exception as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err

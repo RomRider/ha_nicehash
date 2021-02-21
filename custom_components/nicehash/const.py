@@ -10,3 +10,6 @@ SENSOR_DATA_COORDINATOR = "rig_sensor_coordinator"
 API = "api"
 UNSUB = "unsub"
 SENSORS = "sensors"
+
+ACCOUNT_OBJ = "account"
+RIGS_OBJ = "rigs"
