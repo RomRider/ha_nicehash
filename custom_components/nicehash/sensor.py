@@ -25,6 +25,11 @@ _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(minutes=SCAN_INTERVAL_MINUTES)
 
 PLATFORM = "sensor"
+GLOBAL_ATTRIBUTES = [
+    {"unpaidAmount": {"unit": "BTC"}},
+    {"totalProfitability": {"unit": "BTC"}},
+    {"totalProfitabilityLocal": {"unit": "BTC"}},
+]
 RIG_DATA_ATTRIBUTES = [
     {"localProfitability": {"numerical": True, "unit": "BTC"}},
     {"profitability": {"numerical": True, "unit": "BTC"}},
@@ -49,6 +54,11 @@ async def async_setup_entry(
             _update_entities.dev = []
 
         new_dev = []
+        for attr in GLOBAL_ATTRIBUTES:
+            sensor = NiceHashGlobalSensor(coordinator, config_entry, attr)
+            if sensor.unique_id not in _update_entities.dev:
+                new_dev.append(sensor)
+                _update_entities.dev.append(sensor.unique_id)
         for rig in coordinator.data.get("miningRigs"):
             rig_id = rig.get("rigId")
             for data_type in RIG_DATA_ATTRIBUTES:
@@ -79,6 +89,57 @@ async def async_setup_entry(
     # hass.data[DOMAIN][entry.entry_id][UNSUB].append(
     #     async_dispatcher_connect(hass, entry.entry_id, update_sensor_entities)
     # )
+
+
+class NiceHashGlobalSensor(CoordinatorEntity, Entity):
+    """Sensor reprensenting all rigs data"""
+
+    domain = PLATFORM
+
+    def __init__(self, coordinator, config_entry: ConfigEntry, info_type):
+        super().__init__(coordinator)
+        self._info_type = list(info_type.keys())[0]
+        self._info = info_type[self._info_type]
+        self._config_entry = config_entry
+
+    @property
+    def unique_id(self):
+        return f"nh-{self._config_entry.data['name']}-{self._info_type}"
+
+    @property
+    def name(self):
+        return f"NH - {self._config_entry.data['name']} - {self._info_type}"
+
+    @property
+    def state(self):
+        """State of the sensor."""
+        return self.coordinator.data[self._info_type]
+
+    @property
+    def available(self):
+        """Return availability"""
+        return self.coordinator.last_update_success
+
+    @property
+    def unit_of_measurement(self):
+        """Return unit of measurement."""
+        return self._info.get("unit", None)
+
+    @property
+    def device_info(self):
+        """Information about this entity/device."""
+        return {
+            "identifiers": {
+                (
+                    DOMAIN,
+                    f"{self._config_entry.entry_id}_{self._config_entry.data['name']}",
+                )
+            },
+            "name": f"{self._config_entry.data['name']} Account",
+            "sw_version": "",
+            "model": "",
+            "manufacturer": "NiceHash",
+        }
 
 
 class NiceHashSensor(CoordinatorEntity, Entity):
@@ -126,8 +187,8 @@ class NiceHashSensor(CoordinatorEntity, Entity):
         }
 
 
-class NiceHashRigSensor(NiceHashSensor, CoordinatorEntity, Entity):
-    """Sensor representing NiceHash data."""
+class NiceHashRigSensor(NiceHashSensor):
+    """Sensor representing NiceHash rig data."""
 
     @property
     def unique_id(self):
@@ -146,7 +207,7 @@ class NiceHashRigSensor(NiceHashSensor, CoordinatorEntity, Entity):
         return self.get_rig()[self._info_type]
 
 
-class NiceHashRigStatSensor(NiceHashSensor, CoordinatorEntity, Entity):
+class NiceHashRigStatSensor(NiceHashSensor):
     """Representation of a NiceHash Stat Sensor"""
 
     def __init__(self, coordinator, rigId, alg, info_type):
