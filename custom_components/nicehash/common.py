@@ -12,26 +12,27 @@ from custom_components.nicehash.const import (
     ACCOUNT_OBJ,
     DOMAIN,
     RIGS_OBJ,
-    SCAN_INTERVAL_MINUTES,
 )
 
 _LOGGER = getLogger(__name__)
-
-INTERVAL = timedelta(minutes=SCAN_INTERVAL_MINUTES)
 
 
 class NiceHashSensorDataUpdateCoordinator(DataUpdateCoordinator):
     """Define an object to hold Zoom user profile data."""
 
     def __init__(
-        self, hass: HomeAssistant, api: NiceHashPrivateAPI, fiat="USD"
+        self,
+        hass: HomeAssistant,
+        api: NiceHashPrivateAPI,
+        update_interval: int,
+        fiat="USD",
     ) -> None:
         """Initialize."""
         super().__init__(
             hass,
             _LOGGER,
             name=DOMAIN,
-            update_interval=INTERVAL,
+            update_interval=timedelta(minutes=update_interval),
             update_method=self._async_update_data,
         )
         self._api = api
