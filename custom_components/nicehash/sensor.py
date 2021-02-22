@@ -1,6 +1,5 @@
-"""Support for Neato sensors."""
+"""Support for NiceHash sensors."""
 
-from datetime import timedelta
 import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.entity import Entity
@@ -17,14 +16,11 @@ from custom_components.nicehash.const import (
     ACCOUNT_OBJ,
     DOMAIN,
     RIGS_OBJ,
-    SCAN_INTERVAL_MINUTES,
     SENSOR_DATA_COORDINATOR,
     UNSUB,
 )
 
 _LOGGER = logging.getLogger(__name__)
-
-SCAN_INTERVAL = timedelta(minutes=SCAN_INTERVAL_MINUTES)
 
 PLATFORM = "sensor"
 GLOBAL_ATTRIBUTES = [

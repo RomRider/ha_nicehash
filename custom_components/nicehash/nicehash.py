@@ -1,7 +1,6 @@
 """ Implementation of the NiceHash API """
 
 from datetime import datetime
-import logging
 from time import mktime
 import uuid
 import hmac
@@ -21,7 +20,7 @@ class NiceHashPrivateAPI:
         self.host = host
         self.verbose = verbose
 
-    async def request(self, method, path, query="", query2=None):
+    async def request(self, method, path, query="", query2=None, body=None):
         """NiceHash API Request"""
 
         xtime = self.get_epoch_ms_from_now()
@@ -43,10 +42,10 @@ class NiceHashPrivateAPI:
         message += bytearray("\x00", "utf-8")
         message += bytearray(query, "utf-8")
 
-        # if body:
-        #     body_json = json.dumps(body)
-        #     message += bytearray("\x00", "utf-8")
-        #     message += bytearray(body_json, "utf-8")
+        if body:
+            body_json = json.dumps(body, separators=(",", ":"))
+            message += bytearray("\x00", "utf-8")
+            message += bytearray(body_json, "utf-8")
 
         digest = hmac.new(bytearray(self.secret, "utf-8"), message, sha256).hexdigest()
         xauth = self.key + ":" + digest
@@ -66,18 +65,34 @@ class NiceHashPrivateAPI:
             print(method, url)
 
         async with aiohttp.ClientSession(headers=headers) as session:
-            async with session.get(url, params=query2) as response:
-                if response.status == 200:
-                    return await response.json()
-                if response.content:
-                    raise Exception(
-                        str(response.status)
-                        + ": "
-                        + response.reason
-                        + ": "
-                        + str(response.content)
-                    )
-                raise Exception(str(response.status) + ": " + response.reason)
+            if method == "GET":
+                async with session.get(url, params=query2) as response:
+                    if response.status == 200:
+                        return await response.json()
+                    if response.content:
+                        raise Exception(
+                            str(response.status)
+                            + ": "
+                            + response.reason
+                            + ": "
+                            + str(await response.text())
+                        )
+                    raise Exception(str(response.status) + ": " + response.reason)
+            if method == "POST":
+                async with session.post(
+                    url, data=json.dumps(body, separators=(",", ":"))
+                ) as response:
+                    if response.status == 200:
+                        return await response.json()
+                    if response.content:
+                        raise Exception(
+                            str(response.status)
+                            + ": "
+                            + response.reason
+                            + ": "
+                            + str(await response.text())
+                        )
+                    raise Exception(str(response.status) + ": " + response.reason)
 
     async def get_mining_address(self):
         """Return the mining address"""
@@ -94,6 +109,17 @@ class NiceHashPrivateAPI:
             "/main/api/v2/accounting/accounts2",
             "fiat={}".format(fiat),
             {"fiat": fiat},
+        )
+
+    async def set_rig_status(self, rig_id: str, status: bool):
+        """Set a rig status"""
+        action = "START" if status else "STOP"
+        return await self.request(
+            "POST",
+            "/main/api/v2/mining/rigs/status2",
+            "",
+            None,
+            {"rigId": rig_id, "action": action},
         )
 
     def get_epoch_ms_from_now(self):

@@ -21,7 +21,7 @@ from custom_components.nicehash.common import NiceHashSensorDataUpdateCoordinato
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = ["sensor"]
+PLATFORMS = ["sensor", "switch"]
 
 
 async def async_setup(hass: HomeAssistant, _):  # config: dict

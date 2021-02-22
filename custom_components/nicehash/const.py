@@ -3,6 +3,7 @@
 DOMAIN = "nicehash"
 PLATFORMS = ["sensor"]
 SCAN_INTERVAL_MINUTES = 1
+SWITCH_ASYNC_UPDATE_AFTER_SECONDS = 20
 
 NICEHASH_API_ENDPOINT = "https://api2.nicehash.com"
 
