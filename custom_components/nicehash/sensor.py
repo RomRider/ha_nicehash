@@ -336,6 +336,12 @@ class NiceHashRigStatSensor(NiceHashSensor):
         """Return unit of measurement."""
         if self._alg == "DAGGERHASHIMOTO":
             return "MH/s"
+        if self._alg == "OCTOPUS":
+            return "MH/s"
+        if self._alg == "KAWPOW":
+            return "MH/s"
+        if self._alg == "GRINCUCKATOO32":
+            return "G/s"
         return super().unit_of_measurement
 
 
