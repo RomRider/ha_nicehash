@@ -2,3 +2,4 @@ default_config:
 
 demo:
 
+debugpy:

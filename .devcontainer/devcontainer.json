@@ -5,6 +5,7 @@
   "remoteUser": "vscode",
   "appPort": [
     "8123:8123",
+	"5678:5678"
   ],
   "postCreateCommand": "sudo container install",
   "extensions": [
