@@ -14,6 +14,7 @@ from homeassistant.helpers.typing import HomeAssistantType
 from custom_components.nicehash.common import NiceHashSensorDataUpdateCoordinator
 from custom_components.nicehash.const import (
     ACCOUNT_OBJ,
+    ALGOS_UNITS,
     DOMAIN,
     RIGS_OBJ,
     SENSOR_DATA_COORDINATOR,
@@ -334,8 +335,9 @@ class NiceHashRigStatSensor(NiceHashSensor):
     @property
     def unit_of_measurement(self):
         """Return unit of measurement."""
-        if self._alg == "DAGGERHASHIMOTO":
-            return "MH/s"
+        unit = ALGOS_UNITS.get(self._alg, None)
+        if unit:
+            return unit
         return super().unit_of_measurement
 
 
