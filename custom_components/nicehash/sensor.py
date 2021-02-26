@@ -308,8 +308,8 @@ class NiceHashRigStatSensor(NiceHashSensor):
         alg = None
         if rig is not None:
             for stat in rig.get("stats", []):
-                alg = stat.get("algorithm")
-                if alg and alg.get("enumName") == self._alg:
+                algo = stat.get("algorithm")
+                if algo and algo.get("enumName") == self._alg:
                     alg = stat
         return alg
 
