@@ -1,6 +1,7 @@
 """Support for NiceHash sensors."""
 
 import logging
+from datetime import datetime
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.entity import Entity
 from homeassistant.core import callback
@@ -309,9 +310,15 @@ class NiceHashRigStatSensor(NiceHashSensor):
         alg = None
         if rig is not None:
             for stat in rig.get("stats", []):
-                algo = stat.get("algorithm")
-                if algo and algo.get("enumName") == self._alg:
-                    alg = stat
+                is_mining = False
+                for dev in rig.get("devices", []):
+                    for speed in dev.get("speeds", []):
+                        if speed.get("algorithm") == self._alg:
+                            is_mining = True
+                if is_mining:
+                    algo = stat.get("algorithm")
+                    if algo and algo.get("enumName") == self._alg:
+                        alg = stat
         return alg
 
     @property
