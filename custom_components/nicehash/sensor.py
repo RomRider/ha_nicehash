@@ -11,6 +11,7 @@ from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
 )
 from homeassistant.helpers.typing import HomeAssistantType
+from homeassistant.const import TEMP_CELSIUS, DEVICE_CLASS_TEMPERATURE, POWER_WATT, DEVICE_CLASS_POWER
 
 from custom_components.nicehash.common import NiceHashSensorDataUpdateCoordinator
 from custom_components.nicehash.const import (
@@ -39,6 +40,10 @@ RIG_DATA_ATTRIBUTES_NON_BTC = [
 ]
 
 RIG_STATS_ATTRIBUTES = [{"speedAccepted": {}}, {"speedRejectedTotal": {}}]
+DEVICE_STATS_ATTRIBUTES = [
+    {"temperature": {"unit": TEMP_CELSIUS, "device_class": DEVICE_CLASS_TEMPERATURE}}, 
+    {"powerUsage": {"unit": POWER_WATT, "device_class": DEVICE_CLASS_POWER}}
+]
 
 
 async def async_setup_entry(
@@ -108,6 +113,19 @@ async def async_setup_entry(
                         rig_id,
                         alg.get("enumName"),
                         data_type,
+                    )
+                    if sensor.unique_id not in _update_entities.dev:
+                        new_dev.append(sensor)
+                        _update_entities.dev.append(sensor.unique_id)
+
+            for device in rig.get("devices", []):
+                for data_type in DEVICE_STATS_ATTRIBUTES:
+                    sensor = NiceHashDeviceStatSensor(
+                        coordinator,
+                        config_entry,
+                        rig_id,
+                        device.get("id"),
+                        data_type
                     )
                     if sensor.unique_id not in _update_entities.dev:
                         new_dev.append(sensor)
@@ -347,6 +365,59 @@ class NiceHashRigStatSensor(NiceHashSensor):
             return unit
         return super().unit_of_measurement
 
+
+class NiceHashDeviceStatSensor(NiceHashSensor):
+    """Representation of a NiceHash Device Sensor"""
+    def __init__(self, coordinator, config_entry, rigId, id, info_type, convert=False):
+        super().__init__(coordinator, config_entry, rigId, info_type, convert)
+        self._id = id
+
+    @property
+    def unique_id(self):
+        unique_id = f"nh-{self._rig_id}-{self._id}-{self._info_type}"
+        return unique_id
+
+    def get_device(self):
+        """Return the device object."""
+        rig = self.get_rig()
+        device = None
+        if rig is not None:
+            for stat in rig.get("stats", []):
+                is_mining = False
+                for dev in rig.get("devices", []):
+                    if dev.get("id") == self._id:
+                        device = dev
+                        break
+        return device
+
+    @property
+    def name(self):
+        rig = self.get_rig()
+        if rig is not None:
+            dev = self.get_device()
+            if dev is not None:
+                return f"NH - {rig.get('name')} - {dev.get('name')} - {self._info_type}"
+        return None
+
+    @property
+    def state(self):
+        """State of the sensor."""
+        dev = self.get_device()
+        if dev is not None:
+            state = dev.get(self._info_type)
+            if state is not -1:
+                return state
+        return None
+
+    @property
+    def available(self):
+        """Return availability"""
+        return super().available and self.get_device() is not None
+
+    @property
+    def device_class(self):
+        """Return device class"""
+        return self._info.get("device_class", None)
 
 class NiceHashAccountGlobalSensor(NiceHashGlobalSensor):
     """Sensor reprensenting all rigs data"""
