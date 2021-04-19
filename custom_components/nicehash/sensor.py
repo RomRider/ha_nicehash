@@ -405,6 +405,8 @@ class NiceHashDeviceStatSensor(NiceHashSensor):
         dev = self.get_device()
         if dev is not None:
             state = dev.get(self._info_type)
+            if self._info_type == "temperature" and state > 500:
+                return state % 65536
             if state is not -1:
                 return state
         return None
