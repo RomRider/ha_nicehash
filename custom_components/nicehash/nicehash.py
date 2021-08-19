@@ -80,7 +80,7 @@ class NiceHashPrivateAPI:
                     raise Exception(str(response.status) + ": " + response.reason)
             if method == "POST":
                 async with session.post(
-                    url, data=json.dumps(body, separators=(",", ":"))
+                        url, data=json.dumps(body, separators=(",", ":"))
                 ) as response:
                     if response.status == 200:
                         return await response.json()
@@ -120,6 +120,17 @@ class NiceHashPrivateAPI:
             "",
             None,
             {"rigId": rig_id, "action": action},
+        )
+
+    async def set_device_status(self, rig_id: str, device_id: str,status: bool):
+        """Set a device status"""
+        action = "START" if status else "STOP"
+        return await self.request(
+            "POST",
+            "/main/api/v2/mining/rigs/status2",
+            "",
+            None,
+            {"rigId": rig_id, "deviceId": device_id, "action": action},
         )
 
     def get_epoch_ms_from_now(self):
