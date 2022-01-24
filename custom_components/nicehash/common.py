@@ -51,27 +51,56 @@ class NiceHashSensorDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def set_power_mode(self, input: dict):
         """Set a device power mode"""
-        rig_name = input.data.get('rig_name')
-        device_name = input.data.get('device_name')
-        power_mode = input.data.get('power_mode')
+        rig_id = input.data.get('rig_id')
+        device_id = input.data.get('device_id')
+        power_mode = input.data.get('power_mode').upper()
 
-        rig_id = None
-        device_id = None
+        nhqm_ver = None
+        nhqm_op = None
+        supported_power_modes = ["HIGH", "MEDIUM", "LOW"]
+        try:
+            for rig in self.data.get(RIGS_OBJ).get("miningRigs"):
+                if rig.get('rigId') != rig_id:
+                    continue
 
-        for rig in self.data.get(RIGS_OBJ).get("miningRigs"):
-            if rig.get('name') == rig_name:
-                rig_id = rig.get('rigId')
                 for device in rig.get('devices'):
-                    if device.get('name') == device_name:
-                        device_id = device.get('id')
-                        break
-                break
+                    if device.get('id') != device_id:
+                        continue
 
-        if not rig_id:
-            raise HomeAssistantError(f'Could not find rig with name {rig_name}')
-        if not device_id:
-            raise HomeAssistantError(f'Could not find device with name {device_name}')
+                    if 'nhqm' in device:
+                        supported_power_modes = []
+                        nhqm = device.get('nhqm')
+                        v_pos = nhqm.find('V=')
+                        if v_pos > -1:
+                            sub = nhqm[v_pos+2:]
+                            delim = sub.find(';')
+                            nhqm_ver = sub[:delim]
 
-        response = await self._api.set_power_mode(rig_id, device_id, power_mode)
+                            opa_pos = nhqm.find('OPA=')
+                            if opa_pos > -1:
+                                sub = nhqm[opa_pos+4:]
+                                delim = sub.find(';')
+                                sub = sub[:delim]
+                                for pm in sub.split(','):
+                                    name, id = pm.split(':')
+                                    supported_power_modes.append(name.upper())
+                                    if name.upper() == power_mode:
+                                        nhqm_op = id
+                                        break
+        except Exception as e:
+            _LOGGER.error(f"Could not parse powerMode for NiceHashQuickMiner -> {type(e)} -> {e.args}")
+
+        if power_mode not in supported_power_modes:
+            raise HomeAssistantError(f'Unsupported power mode [{power_mode}]. Supported power modes for this device are {", ".join(supported_power_modes)}')
+
+        if nhqm_ver and not nhqm_op:
+            raise HomeAssistantError(f'Internal error, cannot determine operation id for power mode [{power_mode}]!')
+
+        _LOGGER.info(f"Calling with {rig_id}, {device_id}, {power_mode}, {nhqm_ver}, {nhqm_op}")
+
+        if nhqm_ver:
+            response = await self._api.set_power_mode_nhqm(rig_id, device_id, nhqm_ver, nhqm_op)
+        else:
+            response = await self._api.set_power_mode(rig_id, device_id, power_mode)
         if not response.get('success'):
-            raise HomeAssistantError(f'Could not set power mode: {response}')
+            raise HomeAssistantError(f'API error: {response}')

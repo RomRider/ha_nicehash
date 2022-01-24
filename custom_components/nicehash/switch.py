@@ -243,15 +243,44 @@ class NiceHashDeviceSwitch(CoordinatorEntity, ToggleEntity):
         rig = self.get_rig()
         device = self.get_device()
 
+        power_mode = device.get("powerMode", {}).get("enumName", "UNKNOWN")
+        supported_power_modes = ["HIGH","MEDIUM","LOW"]
+
+        # Exception for retrieving powerMode from QuickMiner
+        if 'nhqm' in device:
+            try:
+                nhqm = device.get('nhqm')
+                op_pos = nhqm.find('OP=')
+                if op_pos > -1:
+                    sub = nhqm[op_pos+3:]
+                    delim = sub.find(';')
+                    power_mode_raw = sub[:delim]
+                    opa_pos = nhqm.find('OPA=')
+                    if opa_pos > -1:
+                        sub = nhqm[opa_pos+4:]
+                        delim = sub.find(';')
+                        sub = sub[:delim]
+                        supported_power_modes = []
+                        for pm in sub.split(','):
+                            name, id = pm.split(':')
+                            supported_power_modes.append(name.upper())
+                            if id == power_mode_raw:
+                                power_mode = name.upper()
+            except Exception as e:
+                _LOGGER.info(f"Could not parse powerMode for NiceHashQuickMiner -> {type(e)} -> {e.args}")
+
         return {
             "rig_name": rig.get("name"),
+            "rig_id": rig.get("rigId"),
             "device_name": device.get("name"),
+            "device_id": device.get("id"),
             "temperature": device.get("temperature"),
             "load": device.get("load"),
             "fan_speed": device.get("revolutionsPerMinute"),
             "fan_speed_percentage": device.get("revolutionsPerMinutePercentage"),
-            "powerUsage": device.get("powerUsage"),
-            "powerMode": device.get("intensity", {}).get("enumName"),
+            "power_usage": device.get("powerUsage"),
+            "power_mode": power_mode,
+            "supported_power_modes": ', '.join(supported_power_modes),
         }
 
     @property

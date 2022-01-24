@@ -34,8 +34,8 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS = ["sensor", "switch"]
 
 SCRIPT_SCHEMA = voluptuous.Schema({
-    voluptuous.Required("rig_name"): config_validation.string,
-    voluptuous.Required("device_name"): config_validation.string,
+    voluptuous.Required("rig_id"): config_validation.string,
+    voluptuous.Required("device_id"): config_validation.string,
     voluptuous.Required("power_mode"): config_validation.string
 })
 

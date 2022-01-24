@@ -142,6 +142,17 @@ class NiceHashPrivateAPI:
             {"rigId": rig_id, "deviceId": device_id, "action": "POWER_MODE", "options": [power_mode]},
         )
 
+    async def set_power_mode_nhqm(self, rig_id: str, device_id: str, nhqm_ver: str, nhqm_op: str):
+        """Set a device status"""
+
+        return await self.request(
+            "POST",
+            "/main/api/v2/mining/rigs/status2",
+            "",
+            None,
+            {"rigId": rig_id, "deviceId": device_id, "action": "NHQM_SET", "options": [f"V={nhqm_ver};OP={nhqm_op};"]},
+        )
+
     def get_epoch_ms_from_now(self):
         """Return epoch from now"""
         now = datetime.now()
