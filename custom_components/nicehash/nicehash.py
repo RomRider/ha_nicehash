@@ -8,7 +8,6 @@ import json
 from hashlib import sha256
 import aiohttp
 
-
 class NiceHashPrivateAPI:
     """ Implementation of the API calls """
 
@@ -122,7 +121,7 @@ class NiceHashPrivateAPI:
             {"rigId": rig_id, "action": action},
         )
 
-    async def set_device_status(self, rig_id: str, device_id: str,status: bool):
+    async def set_device_status(self, rig_id: str, device_id: str, status: bool):
         """Set a device status"""
         action = "START" if status else "STOP"
         return await self.request(
@@ -131,6 +130,16 @@ class NiceHashPrivateAPI:
             "",
             None,
             {"rigId": rig_id, "deviceId": device_id, "action": action},
+        )
+
+    async def set_power_mode(self, rig_id: str, device_id: str, power_mode: str):
+        """Set a device status"""
+        return await self.request(
+            "POST",
+            "/main/api/v2/mining/rigs/status2",
+            "",
+            None,
+            {"rigId": rig_id, "deviceId": device_id, "action": "POWER_MODE", "options": [power_mode]},
         )
 
     def get_epoch_ms_from_now(self):

@@ -1,0 +1,22 @@
+set_power_mode:
+  description: Set power mode for a device
+  fields:
+    rig_name:
+      description: Name of the rig
+      example: "MyRig"
+      required: true
+    device_name:
+      description: Name of the Device
+      example: "GeForce RTX 3060"
+      required: true
+    power_mode:
+      description: Power Mode
+      example: "HIGH"
+      default: "HIGH"
+      required: true
+      selector:
+          select:
+            options:
+              - "LOW"
+              - "MEDIUM"
+              - "HIGH"

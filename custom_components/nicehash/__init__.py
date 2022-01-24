@@ -8,6 +8,8 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.typing import HomeAssistantType
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.dispatcher import async_dispatcher_send
+import voluptuous
+from homeassistant.helpers import config_validation
 
 from custom_components.nicehash.nicehash import NiceHashPrivateAPI
 from custom_components.nicehash.const import (
@@ -22,6 +24,7 @@ from custom_components.nicehash.const import (
     DOMAIN,
     SENSORS,
     SENSOR_DATA_COORDINATOR,
+    SET_POWER_MODE_COMMAND,
     UNSUB,
 )
 from custom_components.nicehash.common import NiceHashSensorDataUpdateCoordinator
@@ -30,6 +33,11 @@ _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = ["sensor", "switch"]
 
+SCRIPT_SCHEMA = voluptuous.Schema({
+    voluptuous.Required("rig_name"): config_validation.string,
+    voluptuous.Required("device_name"): config_validation.string,
+    voluptuous.Required("power_mode"): config_validation.string
+})
 
 async def async_setup(hass: HomeAssistant, _):  # config: dict
     """Set up NiceHash sensor based on a config entry."""
@@ -92,6 +100,8 @@ async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry) -> bool
             hass.config_entries.async_forward_entry_setup(entry, platform)
         )
 
+    hass.services.async_register(DOMAIN, SET_POWER_MODE_COMMAND, coordinator.set_power_mode, schema=SCRIPT_SCHEMA)
+
     return True
 
 
@@ -114,6 +124,9 @@ async def async_migrate_entry(_, config_entry):
 
 async def async_unload_entry(hass, config_entry: ConfigEntry):
     """Unload a config entry."""
+
+    await hass.services.async_remove(DOMAIN, SET_POWER_MODE_COMMAND)
+
     for unsub in hass.data[DOMAIN][config_entry.entry_id][UNSUB]:
         unsub()
 
