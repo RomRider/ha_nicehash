@@ -238,7 +238,7 @@ class NiceHashDeviceSwitch(CoordinatorEntity, ToggleEntity):
         }
 
     @property
-    def device_state_attributes(self):
+    def extra_state_attributes(self):
         """Return the state attributes."""
         rig = self.get_rig()
         device = self.get_device()
