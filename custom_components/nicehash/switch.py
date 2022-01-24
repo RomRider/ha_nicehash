@@ -190,7 +190,7 @@ class NiceHashDeviceSwitch(CoordinatorEntity, ToggleEntity):
                 self.coordinator.last_update_success
                 and device is not None
                 and device.get("status", {}).get("enumName", "UNKNOWN")
-                not in ["DISABLED", "TRANSFERED", "UNKNOWN", "OFFLINE"]
+                not in ["TRANSFERED", "UNKNOWN", "OFFLINE"]
         )
 
     def get_rig(self):
