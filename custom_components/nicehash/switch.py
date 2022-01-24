@@ -251,6 +251,7 @@ class NiceHashDeviceSwitch(CoordinatorEntity, ToggleEntity):
             "fan_speed": device.get("revolutionsPerMinute"),
             "fan_speed_percentage": device.get("revolutionsPerMinutePercentage"),
             "powerUsage": device.get("powerUsage"),
+            "powerMode": device.get("intensity", {}).get("enumName"),
         }
 
     @property
