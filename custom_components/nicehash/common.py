@@ -44,6 +44,7 @@ class NiceHashSensorDataUpdateCoordinator(DataUpdateCoordinator):
         try:
             async with async_timeout.timeout(10):
                 rigs = await self._api.get_rigs_data()
+                _LOGGER.debug(f"API Rigs response: {rigs}")
                 account = await self._api.get_account_data(self._fiat)
                 return {RIGS_OBJ: rigs, ACCOUNT_OBJ: account}
         except Exception as err:
@@ -104,3 +105,4 @@ class NiceHashSensorDataUpdateCoordinator(DataUpdateCoordinator):
             response = await self._api.set_power_mode(rig_id, device_id, power_mode)
         if not response.get('success'):
             raise HomeAssistantError(f'API error: {response}')
+
