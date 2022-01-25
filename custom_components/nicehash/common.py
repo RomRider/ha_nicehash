@@ -87,14 +87,18 @@ class NiceHashSensorDataUpdateCoordinator(DataUpdateCoordinator):
                                     supported_power_modes.append(name.upper())
                                     if name.upper() == power_mode:
                                         nhqm_op = id
-                                        break
+                        supported_power_modes.append('MANUAL')
+
         except Exception as e:
             _LOGGER.error(f"Could not parse powerMode for NiceHashQuickMiner -> {type(e)} -> {e.args}")
 
         if power_mode not in supported_power_modes:
             raise HomeAssistantError(f'Unsupported power mode [{power_mode}]. Supported power modes for this device are {", ".join(supported_power_modes)}')
 
-        if nhqm_ver and not nhqm_op:
+        if power_mode == 'MANUAL':
+            nhqm_op = 0
+
+        if nhqm_ver and nhqm_op is None:
             raise HomeAssistantError(f'Internal error, cannot determine operation id for power mode [{power_mode}]!')
 
         _LOGGER.info(f"Calling with {rig_id}, {device_id}, {power_mode}, {nhqm_ver}, {nhqm_op}")
