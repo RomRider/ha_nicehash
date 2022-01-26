@@ -1,10 +1,14 @@
-"""Support for NiceHash sensors."""
+"""Support for NiceHash switches."""
 
 import asyncio
 import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.entity import ToggleEntity
 from homeassistant.core import callback
+from homeassistant.helpers import config_validation as cv, entity_platform, service
+import voluptuous as vol
+
+from homeassistant.exceptions import HomeAssistantError
 
 # from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.update_coordinator import (
@@ -21,6 +25,7 @@ from custom_components.nicehash.const import (
     SENSOR_DATA_COORDINATOR,
     SWITCH_ASYNC_UPDATE_AFTER_SECONDS,
     UNSUB,
+    SERVICE_SET_POWER_MODE
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -35,6 +40,11 @@ async def async_setup_entry(
     coordinator: NiceHashSensorDataUpdateCoordinator = hass.data[DOMAIN][
         config_entry.entry_id
     ][SENSOR_DATA_COORDINATOR]
+
+    platform = entity_platform.async_get_current_platform()
+    platform.async_register_entity_service(
+        SERVICE_SET_POWER_MODE, { vol.Required("power_mode"): cv.string}, "set_power_mode",
+    )
 
     @callback
     def _update_entities():
@@ -164,7 +174,9 @@ class NiceHashRigSwitch(CoordinatorEntity, ToggleEntity):
             _LOGGER.error("Failed to set the status of '%s': %s", self.entity_id, err)
         await self.coordinator.async_request_refresh()
 
-
+    async def set_power_mode(self, power_mode):
+        # Not implemented for RigSwitch
+        raise HomeAssistantError("Rig PowerMode service not supported")
 
 
 class NiceHashDeviceSwitch(CoordinatorEntity, ToggleEntity):
@@ -243,31 +255,17 @@ class NiceHashDeviceSwitch(CoordinatorEntity, ToggleEntity):
         rig = self.get_rig()
         device = self.get_device()
 
-        power_mode = device.get("powerMode", {}).get("enumName", "UNKNOWN")
-        supported_power_modes = ["HIGH","MEDIUM","LOW"]
-
-        # Exception for retrieving powerMode from QuickMiner
-        if 'nhqm' in device:
-            try:
-                nhqm = device.get('nhqm')
-                op_pos = nhqm.find('OP=')
-                if op_pos > -1:
-                    sub = nhqm[op_pos+3:]
-                    delim = sub.find(';')
-                    power_mode_raw = sub[:delim]
-                    opa_pos = nhqm.find('OPA=')
-                    if opa_pos > -1:
-                        sub = nhqm[opa_pos+4:]
-                        delim = sub.find(';')
-                        sub = sub[:delim]
-                        supported_power_modes = []
-                        for pm in sub.split(','):
-                            name, id = pm.split(':')
-                            supported_power_modes.append(name.upper())
-                            if id == power_mode_raw:
-                                power_mode = name.upper()
-            except Exception as e:
-                _LOGGER.info(f"Could not parse powerMode for NiceHashQuickMiner -> {type(e)} -> {e.args}")
+        if "nhqm" in device:
+            # NiceHash QuickMiner
+            data = self.parse_nhqm_string(device.get("nhqm"))
+            power_mode_raw = data.get("OP")
+            opa = data.get("OPA", {})
+            power_mode = dict(map(reversed, opa.items())).get(power_mode_raw, "UNKNOWN")
+            supported_power_modes = list(opa.keys())
+        else:
+            # Regular NiceHash miner
+            power_mode = device.get("powerMode", {}).get("enumName", "UNKNOWN")
+            supported_power_modes = ["HIGH", "MEDIUM", "LOW"]
 
         return {
             "rig_name": rig.get("name"),
@@ -280,7 +278,7 @@ class NiceHashDeviceSwitch(CoordinatorEntity, ToggleEntity):
             "fan_speed_percentage": device.get("revolutionsPerMinutePercentage"),
             "power_usage": device.get("powerUsage"),
             "power_mode": power_mode,
-            "supported_power_modes": ', '.join(supported_power_modes),
+            "supported_power_modes": ", ".join(supported_power_modes),
         }
 
     @property
@@ -310,3 +308,69 @@ class NiceHashDeviceSwitch(CoordinatorEntity, ToggleEntity):
         except Exception as err:
             _LOGGER.error("Failed to set the status of '%s': %s", self.entity_id, err)
         await self.coordinator.async_request_refresh()
+
+    async def set_power_mode(self, power_mode):
+        """Set a device power mode"""
+        power_mode = power_mode.upper()
+        rig = self.get_rig()
+        device = self.get_device()
+
+        rig_id = rig.get("rigId")
+        device_id = device.get("id")
+
+        # Regular NiceHash miner
+        version = None
+        power_mode_id = None
+        supported_power_modes = ["HIGH", "MEDIUM", "LOW"]
+
+        # NiceHash QuickMiner alternative logic
+        nhqm = device.get("nhqm")
+        if nhqm:
+            data = self.parse_nhqm_string(nhqm)
+
+            version = data.get("V")
+            op_supported_power_modes = data.get("OPA", {})
+            power_mode_id = op_supported_power_modes.get(power_mode)
+            supported_power_modes = list(op_supported_power_modes.keys())
+
+        if power_mode not in supported_power_modes:
+            raise HomeAssistantError(f"Unsupported power mode [{power_mode}]. "
+                                     f"Supported power modes for this device are {', '.join(supported_power_modes)}")
+
+        if nhqm and version is None:
+            _LOGGER.error(f"Could not determine version! Report this message to developer. nhqm_string: {nhqm}")
+            raise HomeAssistantError(f"Internal error, cannot determine version for power mode [{power_mode}], check the logs.")
+        if nhqm and power_mode_id is None:
+            _LOGGER.error(f"Could not determine power_mode_id for requested power mode {power_mode}! Report this message to developer. "
+                          f"nhqm_string: {nhqm}")
+            raise HomeAssistantError(f"Internal error, cannot determine power_mode_id for power mode [{power_mode}], check the logs.")
+
+        if nhqm:
+            response = await self._api.set_power_mode_nhqm(rig_id, device_id, version, power_mode_id)
+        else:
+            response = await self._api.set_power_mode(rig_id, device_id, power_mode)
+        if not response.get("success"):
+            raise HomeAssistantError(f"API error: {response}")
+
+    @staticmethod
+    def parse_nhqm_string(nhqm: str) -> dict:
+        ret = {}
+        if not nhqm:
+            return ret
+
+        str_params = list(filter(None, nhqm.split(";")))
+        if str_params:
+            ret = dict(s.split("=") for s in str_params)
+            opa = ret.get("OPA")
+            if opa:
+                alt_opa = {}
+                for opa_item in opa.split(","):
+                    opa_items = opa_item.split(":")
+                    if len(opa_items) == 2:
+                        opa_name, opa_id = opa_item.split(":")
+                        alt_opa[opa_name.upper()] = opa_id
+
+                alt_opa["MANUAL"] = "0"
+                ret["OPA"] = alt_opa
+
+        return ret
