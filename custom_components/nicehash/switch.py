@@ -269,9 +269,7 @@ class NiceHashDeviceSwitch(CoordinatorEntity, ToggleEntity):
 
         return {
             "rig_name": rig.get("name"),
-            "rig_id": rig.get("rigId"),
             "device_name": device.get("name"),
-            "device_id": device.get("id"),
             "temperature": device.get("temperature"),
             "load": device.get("load"),
             "fan_speed": device.get("revolutionsPerMinute"),
