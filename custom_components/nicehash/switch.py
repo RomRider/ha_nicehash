@@ -270,8 +270,8 @@ class NiceHashDeviceSwitch(CoordinatorEntity, ToggleEntity):
         return {
             "rig_name": rig.get("name"),
             "device_name": device.get("name"),
-            "temperature": device.get("temperature"),
-            "load": device.get("load"),
+            "temperature": self.normalize_value(device.get("temperature")),
+            "load": self.normalize_value(device.get("load")),
             "fan_speed": device.get("revolutionsPerMinute"),
             "fan_speed_percentage": device.get("revolutionsPerMinutePercentage"),
             "power_usage": device.get("powerUsage"),
@@ -372,3 +372,9 @@ class NiceHashDeviceSwitch(CoordinatorEntity, ToggleEntity):
                 ret["OPA"] = alt_opa
 
         return ret
+
+    @staticmethod
+    def normalize_value(value: int) -> int:
+        if 0 >= value <= 500:
+            return value
+        return value % 65536
