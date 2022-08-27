@@ -8,7 +8,6 @@ import json
 from hashlib import sha256
 import aiohttp
 
-
 class NiceHashPrivateAPI:
     """ Implementation of the API calls """
 
@@ -80,7 +79,7 @@ class NiceHashPrivateAPI:
                     raise Exception(str(response.status) + ": " + response.reason)
             if method == "POST":
                 async with session.post(
-                    url, data=json.dumps(body, separators=(",", ":"))
+                        url, data=json.dumps(body, separators=(",", ":"))
                 ) as response:
                     if response.status == 200:
                         return await response.json()
@@ -120,6 +119,38 @@ class NiceHashPrivateAPI:
             "",
             None,
             {"rigId": rig_id, "action": action},
+        )
+
+    async def set_device_status(self, rig_id: str, device_id: str, status: bool):
+        """Set a device status"""
+        action = "START" if status else "STOP"
+        return await self.request(
+            "POST",
+            "/main/api/v2/mining/rigs/status2",
+            "",
+            None,
+            {"rigId": rig_id, "deviceId": device_id, "action": action},
+        )
+
+    async def set_power_mode(self, rig_id: str, device_id: str, power_mode: str):
+        """Set a device status"""
+        return await self.request(
+            "POST",
+            "/main/api/v2/mining/rigs/status2",
+            "",
+            None,
+            {"rigId": rig_id, "deviceId": device_id, "action": "POWER_MODE", "options": [power_mode]},
+        )
+
+    async def set_power_mode_nhqm(self, rig_id: str, device_id: str, nhqm_ver: str, nhqm_op: str):
+        """Set a device status"""
+
+        return await self.request(
+            "POST",
+            "/main/api/v2/mining/rigs/status2",
+            "",
+            None,
+            {"rigId": rig_id, "deviceId": device_id, "action": "NHQM_SET", "options": [f"V={nhqm_ver};OP={nhqm_op};"]},
         )
 
     def get_epoch_ms_from_now(self):

@@ -23,6 +23,8 @@ SENSORS = "sensors"
 ACCOUNT_OBJ = "account"
 RIGS_OBJ = "rigs"
 
+SERVICE_SET_POWER_MODE = "set_power_mode"
+
 ALGOS_UNITS = {
     "SCRYPT": None,
     "SHA256": None,

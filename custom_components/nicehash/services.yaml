@@ -1,0 +1,11 @@
+set_power_mode:
+  description: Set power mode
+  target:
+    entity:
+      integration: nicehash
+      domain: switch
+  fields:
+    power_mode:
+      description: Power Mode
+      example: "HIGH"
+      required: true

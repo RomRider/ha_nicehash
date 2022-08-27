@@ -114,6 +114,7 @@ async def async_migrate_entry(_, config_entry):
 
 async def async_unload_entry(hass, config_entry: ConfigEntry):
     """Unload a config entry."""
+
     for unsub in hass.data[DOMAIN][config_entry.entry_id][UNSUB]:
         unsub()
 
