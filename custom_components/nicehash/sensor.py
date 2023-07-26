@@ -165,7 +165,7 @@ class NiceHashGlobalSensor(CoordinatorEntity, Entity):
         if self._convert and self._info.get("unit", None) == "BTC":
             return (
                 float(self.coordinator.data[self._data_type][self._info_type])
-                * self.coordinator.data[ACCOUNT_OBJ]["currencies"][0]["fiatRate"]
+                * self.coordinator.data[ACCOUNT_OBJ]["currencies"][0].get("fiatRate",0)
             )
         return self.coordinator.data[self._data_type][self._info_type]
 
@@ -275,7 +275,7 @@ class NiceHashRigSensor(NiceHashSensor):
         if self._convert and self._info.get("unit", None) == "BTC":
             return (
                 self.get_rig()[self._info_type]
-                * self.coordinator.data[ACCOUNT_OBJ]["currencies"][0]["fiatRate"]
+                * self.coordinator.data[ACCOUNT_OBJ]["currencies"][0].get("fiatRate",0)
             )
         return self.get_rig()[self._info_type]
 
@@ -329,7 +329,7 @@ class NiceHashRigStatSensor(NiceHashSensor):
             if self._convert:
                 return (
                     alg.get(self._info_type)
-                    * self.coordinator.data[ACCOUNT_OBJ]["currencies"][0]["fiatRate"]
+                    * self.coordinator.data[ACCOUNT_OBJ]["currencies"][0].get("fiatRate",0)
                 )
             return alg.get(self._info_type)
         return None
@@ -376,6 +376,6 @@ class NiceHashAccountGlobalSensor(NiceHashGlobalSensor):
                         self._info_type
                     ]
                 )
-                * self.coordinator.data[ACCOUNT_OBJ]["currencies"][0]["fiatRate"]
+                * self.coordinator.data[ACCOUNT_OBJ]["currencies"][0].get("fiatRate",0)
             )
-        return self.coordinator.data[self._data_type]["currencies"][0][self._info_type]
+        return self.coordinator.data[self._data_type]["currencies"][0].get(self._info_type,0)
