@@ -67,18 +67,20 @@ async def async_setup_entry(
                 new_dev.append(rig_switch)
                 _update_entities.dev.append(rig_switch.unique_id)
 
-            for dev in rig.get("devices"):
-                device_id = dev.get("id")
-                device_switch = NiceHashDeviceSwitch(
-                    hass.data[DOMAIN][config_entry.entry_id][API],
-                    coordinator,
-                    config_entry,
-                    rig_id,
-                    device_id,
-                )
-                if device_switch.unique_id not in _update_entities.dev:
-                    new_dev.append(device_switch)
-                    _update_entities.dev.append(device_switch.unique_id)
+            rig_devices = rig.get("devices)
+            if rig_devices:
+              for dev in rig.get("devices"):
+                  device_id = dev.get("id")
+                  device_switch = NiceHashDeviceSwitch(
+                      hass.data[DOMAIN][config_entry.entry_id][API],
+                      coordinator,
+                      config_entry,
+                      rig_id,
+                      device_id,
+                  )
+                  if device_switch.unique_id not in _update_entities.dev:
+                      new_dev.append(device_switch)
+                      _update_entities.dev.append(device_switch.unique_id)
 
         async_add_entities(new_dev)
 
